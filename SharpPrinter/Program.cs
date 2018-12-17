@@ -7,6 +7,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Net.NetworkInformation;
 using SnmpSharpNet;
+using System.Text.RegularExpressions;
 
 namespace SharpPrinter
 {
@@ -83,15 +84,6 @@ namespace SharpPrinter
                 Printers.PrinterList.Add(host + " " + mfg + " " + printerMDL);
                 
             }
-            else if (snmpDataS == null)
-            {
-                Console.WriteLine("No Printers Found.");
-            }
-            else
-            {
-                Console.WriteLine("Not Response from " + host);
-            }
-
 
             return result;
         }
@@ -168,8 +160,23 @@ namespace SharpPrinter
                 task.Wait();
                 Thread.Sleep(2000);
                 Printers data = new Printers();
-                Printers.PrinterList.ForEach(i => Console.WriteLine("{0}\t", i));
-                Console.WriteLine("");
+                
+
+                foreach (string p in Printers.PrinterList)
+                    if (p != null)
+                    {
+                        Match m = Regex.Match(p, @"\b(Aficio MP|Sharp MX)\b");
+                        if (m.Success)
+                        {
+                            Console.WriteLine("Found printer with potential LDAP Passback: '{0}'.", p);
+                            Console.WriteLine("");
+                        }
+                    }
+                    else
+                    {
+                        Printers.PrinterList.ForEach(i => Console.WriteLine("{0}\t", i));
+                        Console.WriteLine("");
+                    }
                 Console.WriteLine("Done!");
 
             }
