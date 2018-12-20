@@ -13,19 +13,14 @@ using System.Text.RegularExpressions;
 
 namespace SharpPrinter
 {
-    
+
     class Program
     {
-        
+
         public class Printers
         {
             public static List<string> PrinterList = new List<string>();
         }
-        public class AddressBooks
-        {
-            public static List<string> AddressList = new List<string>();
-        }
-
 
         static string GetLocalIPv4(NetworkInterfaceType _type)
         {
@@ -64,7 +59,7 @@ namespace SharpPrinter
             return result;
         }
 
-        static bool getSnmp(string host, string OID, bool adump)
+        static bool getSnmp(string host, string OID)
         {
             bool result = false;
 
@@ -79,30 +74,18 @@ namespace SharpPrinter
             Dictionary<Oid, AsnType> snmpDataS = snmpVerb.Get(SnmpVersion.Ver1, new string[] { varbind.ToString() });
             if (snmpDataS != null)
             {
-                if (adump == true)
-                {
-                    
-                    AddressBooks data = new AddressBooks();
-                    string temp = snmpDataS[varbind].ToString();
-                    AddressBooks.AddressList.Add(temp);
-                }
-                else
-                {
-                    string temp = snmpDataS[varbind].ToString();
-                    // Get MANUFACTURER
-                    int startIndex = temp.IndexOf("MFG:");
-                    int endIndex = temp.IndexOf(";", startIndex);
-                    string mfg = temp.Substring(startIndex + 4, endIndex - (startIndex + 4));
-                    // Get MODEL
-                    startIndex = temp.IndexOf("MDL:");
-                    endIndex = temp.IndexOf(";", startIndex);
-                    string printerMDL = temp.Substring(startIndex + 4, endIndex - (startIndex + 4));
-                    Printers data = new Printers();
-                    Printers.PrinterList.Add(host + " " + mfg + " " + printerMDL);
-                }
-
+                string temp = snmpDataS[varbind].ToString();
+                // Get MANUFACTURER
+                int startIndex = temp.IndexOf("MFG:");
+                int endIndex = temp.IndexOf(";", startIndex);
+                string mfg = temp.Substring(startIndex + 4, endIndex - (startIndex + 4));
+                // Get MODEL
+                startIndex = temp.IndexOf("MDL:");
+                endIndex = temp.IndexOf(";", startIndex);
+                string printerMDL = temp.Substring(startIndex + 4, endIndex - (startIndex + 4));
+                Printers data = new Printers();
+                Printers.PrinterList.Add(host + " " + mfg + " " + printerMDL);
             }
-
             return result;
         }
 
@@ -110,29 +93,21 @@ namespace SharpPrinter
         [DllImport("iphlpapi.dll", ExactSpelling = true)]
         public static extern int SendARP(int DestIP, int SrcIP, byte[] pMacAddr, ref uint PhyAddrLen);
 
-        static void SendArpRequest(IPAddress dst, bool adump)
+        static void SendArpRequest(IPAddress dst)
         {
             byte[] macAddr = new byte[6];
             uint macAddrLen = (uint)macAddr.Length;
             int uintAddress = BitConverter.ToInt32(dst.GetAddressBytes(), 0);
 
-            if (adump == true)
+
+            if (SendARP(uintAddress, 0, macAddr, ref macAddrLen) == 0)
             {
-                getSnmp(dst.ToString(), "1.3.6.1.4.1.1347.42.23.1.4.0", true);
-            }
-            else
-            {
-                if (SendARP(uintAddress, 0, macAddr, ref macAddrLen) == 0)
+                getSnmpnext(dst.ToString(), "1.3.6.1.2.1.43");
+                if (getSnmpnext(dst.ToString(), "1.3.6.1.2.1.43") == true)
                 {
-                    getSnmpnext(dst.ToString(), "1.3.6.1.2.1.43");
-                    if (getSnmpnext(dst.ToString(), "1.3.6.1.2.1.43") == true)
-                    {
-                        getSnmp(dst.ToString(), "1.3.6.1.4.1.2699.1.2.1.2.1.1.3.1", false);
-                    }
+                    getSnmp(dst.ToString(), "1.3.6.1.4.1.2699.1.2.1.2.1.1.3.1");
                 }
-
             }
-
         }
 
         static void ScanPrinters()
@@ -169,7 +144,7 @@ namespace SharpPrinter
 
             foreach (IPAddress ip in ipAddressList)
             {
-                Thread thread = new Thread(() => SendArpRequest(ip, true));
+                Thread thread = new Thread(() => SendArpRequest(ip));
                 thread.Start();
             }
 
@@ -177,12 +152,10 @@ namespace SharpPrinter
 
         static void Main(string[] args)
         {
-            bool AddressDump = false;
             bool showhelp = false;
 
             var opts = new OptionSet()
             {
-                { "AddressDump=", " --AddressDump+", v => AddressDump = v != null },
                 { "h|?|help",  "Show available options", v => showhelp = v != null },
             };
             try
@@ -197,67 +170,47 @@ namespace SharpPrinter
             {
                 Console.WriteLine("RTFM");
                 opts.WriteOptionDescriptions(Console.Out);
-                Console.WriteLine("[*] Example: SharpPrinter.exe --AddressDump+");
+                Console.WriteLine("[*] Example: SharpPrinter.exe");
                 return;
             }
 
 
             try
             {
-                if (AddressDump == true)
-                {
-                    Task task = Task.Run(() => ScanPrinters());
-                    task.Wait();
-                    Thread.Sleep(2000);
-                    AddressBooks data = new AddressBooks();
-                    foreach (string a in AddressBooks.AddressList)
-                        if (a != null)
-                        {
-                            Console.WriteLine(a);
-                        }
-                        else
-                        {
-                            AddressBooks.AddressList.ForEach(i => Console.WriteLine("{0}\t", i));
-                            Console.WriteLine("");
-                        }
-                }
-                else
-                {
-                    Task task = Task.Run(() => ScanPrinters());
-                    task.Wait();
-                    Thread.Sleep(2000);
-                    Printers data = new Printers();
+
+                Task task = Task.Run(() => ScanPrinters());
+                task.Wait();
+                Thread.Sleep(2000);
+                Printers data = new Printers();
 
 
-                    foreach (string p in Printers.PrinterList)
-                        if (p != null)
+                foreach (string p in Printers.PrinterList)
+                    if (p != null)
+                    {
+                        Match passback = Regex.Match(p, @"\b(Aficio MP|Sharp MX|ColorQube 9303)\b");
+                        if (passback.Success)
                         {
-                            Match passback = Regex.Match(p, @"\b(Aficio MP|Sharp MX|ColorQube 9303)\b");
-                            if (passback.Success)
-                            {
-                                Console.WriteLine("Found printer with potential LDAP passback: '{0}'.", p);
-                                Console.WriteLine("");
-                            }
-                            Match export = Regex.Match(p, @"\b(iR-ADV|Minolta|KYOCERA Document Solutions Printing System|KYOCERA MITA Printing System)\b");
-                            if (export.Success)
-                            {
-                                Console.WriteLine("Found printer with potential for passwords in address book: '{0}'.", p);
-                                Console.WriteLine("");
-                            }
-                            Match leakage = Regex.Match(p, @"\b(KONICA MINOLTA bizhub|TopAccess|M3035|Canon iR3320|Canon iR2220|Canon iR C5800|Canon iR C2620|Canon iR C3200|Canon iR C3220|Canon iR5055|Canon iR3045|Canon iR3035|Top Page - MX-|KONICA MINOLTA magicolor 4690MF|KONICA MINOLTA magicolor 1690MF)\b");
-                            if (leakage.Success)
-                            {
-                                Console.WriteLine("Found printer with potential for password leakage: '{0}'.", p);
-                                Console.WriteLine("");
-                            }
-                        }
-                        else
-                        {
-                            Printers.PrinterList.ForEach(i => Console.WriteLine("{0}\t", i));
+                            Console.WriteLine("Found printer with potential LDAP passback: '{0}'.", p);
                             Console.WriteLine("");
                         }
-                    
-                }
+                        Match export = Regex.Match(p, @"\b(iR-ADV|Minolta|KYOCERA Document Solutions Printing System|KYOCERA MITA Printing System)\b");
+                        if (export.Success)
+                        {
+                            Console.WriteLine("Found printer with potential for passwords in address book: '{0}'.", p);
+                            Console.WriteLine("");
+                        }
+                        Match leakage = Regex.Match(p, @"\b(KONICA MINOLTA bizhub|TopAccess|M3035|Canon iR3320|Canon iR2220|Canon iR C5800|Canon iR C2620|Canon iR C3200|Canon iR C3220|Canon iR5055|Canon iR3045|Canon iR3035|Top Page - MX-|KONICA MINOLTA magicolor 4690MF|KONICA MINOLTA magicolor 1690MF)\b");
+                        if (leakage.Success)
+                        {
+                            Console.WriteLine("Found printer with potential for password leakage: '{0}'.", p);
+                            Console.WriteLine("");
+                        }
+                    }
+                    else
+                    {
+                        Printers.PrinterList.ForEach(i => Console.WriteLine("{0}\t", i));
+                        Console.WriteLine("");
+                    }
                 Console.WriteLine("Done!");
                 Console.WriteLine("For more information on these attacks, check out the following information:");
                 Console.WriteLine("https://www.defcon.org/images/defcon-19/dc-19-presentations/Heiland/DEFCON-19-Heiland-Printer-To-Pwnd.pdf");
@@ -268,7 +221,7 @@ namespace SharpPrinter
             {
                 Console.WriteLine(e);
             }
-   
+
         }
     }
 }
