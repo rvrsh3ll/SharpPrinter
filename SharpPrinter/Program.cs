@@ -244,7 +244,7 @@ namespace SharpPrinter
                                 Console.WriteLine("Found printer with potential for passwords in address book: '{0}'.", p);
                                 Console.WriteLine("");
                             }
-                            Match leakage = Regex.Match(p, @"\b(M3035|KONICA MINOLTA magicolor 4690MF|KONICA MINOLTA magicolor 1690MF)\b");
+                            Match leakage = Regex.Match(p, @"\b(KONICA MINOLTA bizhub|TopAccess|M3035|Canon iR3320|Canon iR2220|Canon iR C5800|Canon iR C2620|Canon iR C3200|Canon iR C3220|Canon iR5055|Canon iR3045|Canon iR3035|Top Page - MX-|KONICA MINOLTA magicolor 4690MF|KONICA MINOLTA magicolor 1690MF)\b");
                             if (leakage.Success)
                             {
                                 Console.WriteLine("Found printer with potential for password leakage: '{0}'.", p);
