@@ -187,7 +187,7 @@ namespace SharpPrinter
                 foreach (string p in Printers.PrinterList)
                     if (p != null)
                     {
-                        Match passback = Regex.Match(p, @"\b(Aficio MP|Sharp MX|ColorQube 9303)\b");
+                        Match passback = Regex.Match(p, @"\b(Aficio MP|AltaLink|Sharp MX|ColorQube 9303)\b");
                         if (passback.Success)
                         {
                             Console.WriteLine("Found printer with potential LDAP passback: '{0}'.", p);
